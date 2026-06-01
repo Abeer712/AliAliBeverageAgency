@@ -119,61 +119,24 @@ const authService = {
    *     }
    *   }
    */
-  async signIn(username, password) {
-    await _initUsers();
-
-    // Check lockout
-    const lockout = _getLockout();
-    if (lockout.lockedUntil > Date.now()) {
-      const remaining = Math.ceil((lockout.lockedUntil - Date.now()) / 60000);
-      return { success: false, error: `Too many failed attempts. Try again in ${remaining} minute(s).`, lockedUntil: lockout.lockedUntil };
-    }
-
-    // Find user (case-insensitive username)
-    const user = _USERS_DB.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
-    if (!user) {
-      // Don't reveal whether the username exists
-      const updated = { attempts: lockout.attempts + 1, lockedUntil: lockout.attempts + 1 >= MAX_ATTEMPTS ? Date.now() + LOCKOUT_MS : 0 };
-      _setLockout(updated);
+async signIn(username, password) {
+    try {
+      const email = username + "@aliali.com";
+      const cred = await signInWithEmailAndPassword(firebaseAuth, email, password);
+      return { success: true, user: { uid: cred.user.uid, username, role: "owner", displayName: username } };
+    } catch (e) {
       return { success: false, error: "Invalid username or password." };
     }
-
-    // Verify password
-    const inputHash = await _hashPassword(password);
-    if (inputHash !== user.passwordHash) {
-      const attempts = lockout.attempts + 1;
-      const lockedUntil = attempts >= MAX_ATTEMPTS ? Date.now() + LOCKOUT_MS : 0;
-      _setLockout({ attempts, lockedUntil });
-      const remaining = MAX_ATTEMPTS - attempts;
-      return {
-        success: false,
-        error: remaining > 0
-          ? `Invalid username or password. ${remaining} attempt(s) remaining.`
-          : `Account locked for 15 minutes due to too many failed attempts.`,
-        lockedUntil,
-      };
-    }
-
-    // Success — create session
-    _resetLockout();
-    const token = _createSessionToken(user.uid);
-    try { localStorage.setItem(AUTH_STORE_KEY, token); } catch {}
-
-    return {
-      success: true,
-      user: { uid: user.uid, username: user.username, role: user.role, displayName: user.displayName },
-    };
   },
 
-  /**
-   * Sign out the current user.
-   *
-   * FIREBASE REPLACEMENT:
-   *   async signOut() { await signOut(firebaseAuth); }
-   */
-  async signOut() {
-    try { localStorage.removeItem(AUTH_STORE_KEY); } catch {}
-    // Future: await signOut(firebaseAuth);
+  async signOut() { await fbSignOut(firebaseAuth); },
+
+  async getSession() {
+    return new Promise(resolve => {
+      onAuthStateChanged(firebaseAuth, user => {
+        resolve(user ? { uid: user.uid, username: user.email, role: "owner", displayName: user.displayName || "Admin" } : null);
+      });
+    });
   },
 
   /**
