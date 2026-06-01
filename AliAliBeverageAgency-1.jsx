@@ -81,85 +81,25 @@ function useStore() {
 //     import { onAuthStateChanged } from "firebase/auth";
 //     // Use onAuthStateChanged(auth, callback) in useAuth hook instead.
 
-const AUTH_STORE_KEY = "aab_session_v2";
-const LOCKOUT_KEY    = "aab_lockout";
-const MAX_ATTEMPTS   = 5;
-const LOCKOUT_MS     = 15 * 60 * 1000; // 15 minutes
-const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 hours
 
 // Simple deterministic hash for demo credentials (not cryptographic — Firebase will replace this).
 // In production, NEVER store plain passwords. Firebase handles hashing server-side.
-async function _hashPassword(password) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + "aab_salt_2024");
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-}
+
 
 // Stub user store — replace with Firestore / Firebase Auth users when ready.
 // Passwords are stored as SHA-256 hashes, never in plain text.
-const _USERS_DB = [
-  {
-    uid: "user_admin_001",
-    username: "admin",
-    // SHA-256 of "admin123" + salt — generated at build time, not at runtime
-    passwordHash: null, // will be lazily set on first run via _initUsers()
-    role: "owner",
-    displayName: "Admin",
-    createdAt: "2024-01-01T00:00:00.000Z",
-  },
-];
 
 // Lazily hash credentials on first load and cache in memory (not localStorage).
-let _usersReady = false;
-async function _initUsers() {
-  if (_usersReady) return;
-  for (const user of _USERS_DB) {
-    if (!user.passwordHash) {
-      // Default credentials — change these before deploying to production!
-      // When Firebase is connected, remove this entire block and use Firebase Auth users.
-      const defaultPassword = user.username === "admin" ? "admin123" : "";
-      user.passwordHash = await _hashPassword(defaultPassword);
-    }
-  }
-  _usersReady = true;
-}
+
 
 // Session token — a signed-like string combining uid + expiry + a random nonce.
 // Firebase will replace this with a proper JWT/ID token.
-function _createSessionToken(uid) {
-  const expiry = Date.now() + SESSION_TTL_MS;
-  const nonce = crypto.getRandomValues(new Uint8Array(8));
-  const nonceHex = Array.from(nonce).map(b => b.toString(16).padStart(2, "0")).join("");
-  return btoa(JSON.stringify({ uid, expiry, nonce: nonceHex }));
-}
 
-function _parseSessionToken(token) {
-  try {
-    return JSON.parse(atob(token));
-  } catch {
-    return null;
-  }
-}
+
 
 // Rate limiting / lockout state (in-memory + localStorage backup)
-function _getLockout() {
-  try {
-    const raw = localStorage.getItem(LOCKOUT_KEY);
-    return raw ? JSON.parse(raw) : { attempts: 0, lockedUntil: 0 };
-  } catch {
-    return { attempts: 0, lockedUntil: 0 };
-  }
-}
 
-function _setLockout(state) {
-  try { localStorage.setItem(LOCKOUT_KEY, JSON.stringify(state)); } catch {}
-}
 
-function _resetLockout() {
-  try { localStorage.removeItem(LOCKOUT_KEY); } catch {}
-}
 
 // ── Public API ──
 const authService = {
