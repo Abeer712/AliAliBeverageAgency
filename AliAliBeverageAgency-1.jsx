@@ -103,23 +103,7 @@ function useStore() {
 
 // ── Public API ──
 const authService = {
-  /**
-   * Sign in with username + password.
-   * Returns: { success: true, user: { uid, username, role, displayName } }
-   *       or { success: false, error: string, lockedUntil?: number }
-   *
-   * FIREBASE REPLACEMENT:
-   *   async signIn(username, password) {
-   *     try {
-   *       const cred = await signInWithEmailAndPassword(firebaseAuth, username + "@yourdomain.com", password);
-   *       _resetLockout();
-   *       return { success: true, user: { uid: cred.user.uid, username, role: "owner", displayName: cred.user.displayName } };
-   *     } catch (e) {
-   *       return { success: false, error: "Invalid credentials." };
-   *     }
-   *   }
-   */
-async signIn(username, password) {
+  async signIn(username, password) {
     try {
       const email = username + "@aliali.com";
       const cred = await signInWithEmailAndPassword(firebaseAuth, email, password);
@@ -137,31 +121,6 @@ async signIn(username, password) {
         resolve(user ? { uid: user.uid, username: user.email, role: "owner", displayName: user.displayName || "Admin" } : null);
       });
     });
-  },
-
-  /**
-   * Restore session from storage on page load.
-   * Returns: user object or null.
-   *
-   * FIREBASE REPLACEMENT:
-   *   Replace with onAuthStateChanged listener in useAuth hook.
-   */
-  async getSession() {
-    await _initUsers();
-    try {
-      const token = localStorage.getItem(AUTH_STORE_KEY);
-      if (!token) return null;
-      const payload = _parseSessionToken(token);
-      if (!payload || payload.expiry < Date.now()) {
-        localStorage.removeItem(AUTH_STORE_KEY);
-        return null;
-      }
-      const user = _USERS_DB.find(u => u.uid === payload.uid);
-      if (!user) return null;
-      return { uid: user.uid, username: user.username, role: user.role, displayName: user.displayName };
-    } catch {
-      return null;
-    }
   },
 };
 
