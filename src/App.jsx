@@ -174,7 +174,7 @@ function useStore() {
 const authService = {
   async signIn(username, password) {
     try {
-      const email = username + "@aliali.com";
+      const email = username;
       const cred = await signInWithEmailAndPassword(firebaseAuth, email, password);
       return { success: true, user: { uid: cred.user.uid, username, role: "owner", displayName: username } };
     } catch (e) {
